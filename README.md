@@ -141,7 +141,6 @@ graph LR;
     D[D]
     E[E]
     F[F]
-    G[G]
     H[T]
     S--3-->A;
     S--4-->B;
