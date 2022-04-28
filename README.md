@@ -248,7 +248,7 @@ int main()
 
 ```
 
-## FFA 의 한계점
+## FFA 의 한계점 및 시간복잡도 분석
 
 ```mermaid
 graph LR;
@@ -262,4 +262,155 @@ graph LR;
     B--1000-->D;
     C--1000-->D;
 ```
-Ford-Fulkerson Algorithm 을 사용하여 위 그래프에 대한 최대유량을 구하는 알고리즘을 구현했다고 가정하자. 
+Ford-Fulkerson Algorithm 을 사용하여 위 그래프에 대한 최대유량을 구하는 알고리즘을 구현했다고 가정해보겠습니다. 
+
+```mermaid
+graph LR;
+    A[A]
+    B[B]
+    C[C]
+    D[D]
+    A--1/1000-->B;
+	B--1/1-->C;
+    A--0/1000-->C;
+    B--0/1000-->D;
+    C--1/1000-->D;
+```
+
+경로 A->B->C->D 로 1을 흘려보냅니다.
+
+```mermaid
+graph LR;
+    A[A]
+    B[B]
+    C[C]
+    D[D]
+    A--1/1000-->B;
+	B--0/1-->C;
+    A--1/1000-->C;
+    B--1/1000-->D;
+    C--1/1000-->D;
+```
+
+DFS 구현상 A->B->C 에서 막히고 역간선을 통해 A->C->B->D 의 경로가 찾아집니다.
+
+```mermaid
+graph LR;
+    A[A]
+    B[B]
+    C[C]
+    D[D]
+    A--1000/1000-->B;
+	B--0/1-->C;
+    A--1000/1000-->C;
+    B--1000/1000-->D;
+    C--1000/1000-->D;
+```
+
+이러한 낭비로 인해 1000번의 루프가 이루어진 뒤에야 최대 유량 을 구할 수 있습니다.
+
+결국 Ford-Fulkerson Algorithm을 사용한 경우 flow의 최대 수치만큼 루프를 반복하게 되어 G=(V,E) 그래프의 시간복잡도는 `O((v+E)F)` 가 됩니다.
+
+# Edmonds–Karp algorithm 
+
+에드몬드-카프로 알고리즘은 FFA와 전체적인 흐름은 같지만 경로를 찾는 방식의 구현을 BFS 형태를 취합니다.  
+
+```mermaid
+graph LR;
+    A[A]
+    B[B]
+    C[C]
+    D[D]
+    A--1000-->B;
+	B--1-->C;
+    A--1000-->C;
+    B--1000-->D;
+    C--1000-->D;
+```
+
+위 그래프에 대해 에드몬드-카프로 알고리즘을 사용할 경우 플로우에 영향을 받는 포드-풀커슨과 달리 edge에 영향을 받기 때문에 시간 복잡도가 O(VE^2)이 된다. 따라서 위와 같이 edge에 비해 Flow 값이 큰 경우 애드몬드-카프로 알고리즘을 활용하면 더 빠른 시간에 문제를 해결할 수 있다.
+
+## Edmonds–Karp algorithm 구현
+
+
+```c++
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+#include <cstring>
+using namespace std;
+const int V = 52; // 노드의 개수(a부터 Z까지의 개수)
+const int IM = 1'000'000'000; // 매우 큰 수 
+
+// 문자 A 부터 z 까지 정수로 변환하는 함수
+int ctoi(char c){
+    if(c <= 'Z') 
+		return c - 'A';
+	else
+	    return c - 'a' + 26;
+}
+int main()
+{
+	int c[V][V] = {0}; // 간선의 용량
+	int f[V][V] = {0}; // 간선의 유량
+	vector<int> adj[V]; // 인접 노드 리스트
+
+	int N; // 간선의 개수
+	cin >> N; // 간선의 개수 입력
+	for(int i=0; i<N; ++i)
+	{
+		// 노드 u,v와 용량 w
+		char u, v;
+		int w; 
+		cin >> u >> v >>w;
+		u = ctoi(u); v = ctoi(v);
+		c[u][v] = c[v][u] += w; // 간선의 용량
+		adj[u].push_back(v); // 인접 노드 추가
+		adj[v].push_back(u); // 역방향 노드 추가
+	}
+	int totalf =0; // 총 유량
+	int src = ctoi('A'); // 소스
+	int E = ctoi('Z'); // 싱크
+	
+	while(true)
+	{
+		// 증가 경로를 DFS로 찾는다.
+		int prev[50]; // 경로 기록 배열
+		memset(prev, -1, sizeof prev); // 배열을 -1로 초기화
+		queue<int> Q;
+		Q.push(src);
+		// stack이 비거나 싱크에 도착할 때까지 반복
+		while(!Q.empty() && prev[E] == -1) {
+            int curr = Q.front();
+            Q.pop();
+            for (int next : adj[curr]) {
+                // 인접 노드에 대하여 용량 - 유량이 0 이상이고 싱크에 도착하지 않았으면
+                if (c[curr][next] - f[curr][next] > 0 && prev[next] == -1) {
+                    Q.push(next); // 스택에 추가
+                    prev[next] = curr; // 경로저 장
+                    if (next == E) break; // 싱크에 도착했을 경우 break
+                }
+            }
+        }
+	    if (prev[E] == -1) 
+			break; // 싱크로의 추가 경로가 없을 경우 break
+
+        int flow = IM; // 플로우 변수에 INT_MAX값을 부여
+        for (int i = E; i != S; i = prev[i])
+            flow = min(flow, c[prev[i]][i] - f[prev[i]][i]); // 플로우 변수에 증가 경로 상 최소값을 넣는다
+        
+        for (int i = E; i != S; i = prev[i]) {
+            f[prev[i]][i] += flow; // 증가 경로의 모든 간선에 플로우 값을 추가한다
+            f[i][prev[i]] -= flow; // 역방향에는 음의 플로우 값을 추가한다.
+        }
+        totalf += flow; // 총 유량에 플로우를 추가시킨다.
+    }
+    
+    cout << totalf ; // 최대 플로우값 출력
+}
+
+
+```
+
+포드-풀커슨 알고리즘을 구현했으면 애드몬드-카프의 구현은 어렵지 않다. DFS로 구현한 경로 탑색을 BFS 로 수정하기만 하면 되기 때문이다.
