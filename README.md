@@ -161,5 +161,90 @@ graph LR;
 
 포드-폴커슨 알고리즘의 동작원리는 간단하다.
 우선, 플로우 그래프 G= (V,E) 와 플로우 f 에 대해 s에서 t로의 증강 경로(augmenting path)p를 찾는다. p상에 있는 모든 간선에는 여유용량이 남아 있어야 한다.  
-그 다음 p의 각 간선에서 증가시킬 수 있는 플로우의 최대량을 찾는다. 이를 p의 잔여 용량(residual capacity)
+그 다음 p의 각 간선에서 증가시킬 수 있는 플로우의 최대량을 찾는다. 즉, p의 잔여 용량(residual capacity)들 중 c(u,v) - f(u,v) 가 최소인 값을 찾는 것이다. 찾은 보낼 수 있는 최대 유량을 흘려주고 반대 경로에는 음의 유량을 흘려준다. 이 과정을 더 이상 증가 경로가 없을 때까지 반복하는 것이다.
+
+
+## 소스 코드 분석
+
+<문제> 첫째 줄에 정수 V (1 ≤ N ≤ 700)이 주어진다. 둘째 줄부터 N+1번째 줄까지 간선의 정보가 주어진다. 첫 번째, 두 번째 위치에 간선의 이름(알파벳 대문자 또는 소문자)이 주어지고, 세 번째 위치에 간선의 용량이 주어진다. 첫째 줄에 A에서 Z까지의 최대 유량을 출력한다.
+
+```c++
+#include <iostream>
+#include <vector>
+#include <stack>
+#include <algorithm>
+#include <cstring>
+using namespace std;
+const int V = 52; // 노드의 개수(a부터 Z까지의 개수)
+const int IM = 1'000'000'000; // 매우 큰 수 
+
+// 문자 A 부터 z 까지 정수로 변환하는 함수
+int ctoi(char c){
+    if(c <= 'Z') 
+		return c - 'A';
+	else
+	    return c - 'a' + 26;
+}
+int main()
+{
+	int c[V][V] = {0}; // 간선의 용량
+	int f[V][V] = {0}; // 간선의 유량
+	vector<int> adj[V]; // 인접 노드 리스트
+
+	int N; // 간선의 개수
+	cin >> N; // 간선의 개수 입력
+	for(int i=0; i<N; ++i)
+	{
+		// 노드 u,v와 용량 w
+		char u, v;
+		int w; 
+		cin >> u >> v >>w;
+		u = ctoi(u); v = ctoi(v);
+		c[u][v] = c[v][u] += w; // 간선의 용량
+		adj[u].push_back(v); // 인접 노드 추가
+		adj[v].push_back(u); // 역방향 노드 추가
+	}
+	int totalf =0; // 총 유량
+	int src = ctoi('A'); // 소스
+	int E = ctoi('Z'); // 싱크
+	
+	while(true)
+	{
+		// 증가 경로를 DFS로 찾는다.
+		int prev[50]; // 경로 기록 배열
+		memset(prev, -1, sizeof prev); // 배열을 -1로 초기화
+		stack<int> s;
+		s.push(src);
+		// stack이 비거나 싱크에 도착할 때까지 반복
+		while(!s.empty() && prev[E] == -1) {
+            int curr = s.top();
+            s.pop();
+            for (int next : adj[curr]) {
+                // 인접 노드에 대하여 용량 - 유량이 0 이상이고 싱크에 도착하지 않았으면
+                if (c[curr][next] - f[curr][next] > 0 && prev[next] == -1) {
+                    s.push(next); // 스택에 추가
+                    prev[next] = curr; // 경로저 장
+                    if (next == E) break; // 싱크에 도착했을 경우 break
+                }
+            }
+        }
+	    if (prev[E] == -1) 
+			break; // 싱크로의 추가 경로가 없을 경우 break
+
+        int flow = IM; // 플로우 변수에 INT_MAX값을 부여
+        for (int i = E; i != S; i = prev[i])
+            flow = min(flow, c[prev[i]][i] - f[prev[i]][i]); // 플로우 변수에 증가 경로 상 최소값을 넣는다
+        
+        for (int i = E; i != S; i = prev[i]) {
+            f[prev[i]][i] += flow; // 증가 경로의 모든 간선에 플로우 값을 추가한다
+            f[i][prev[i]] -= flow; // 역방향에는 음의 플로우 값을 추가한다.
+        }
+        totalf += flow; // 총 유량에 플로우를 추가시킨다.
+    }
+    
+    cout << totalf ; // 최대 플로우값 출력
+}
+
+
+```
 
